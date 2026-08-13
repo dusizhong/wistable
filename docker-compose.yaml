@@ -1,0 +1,258 @@
+version: "3.9"
+
+services:
+  web-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web-server
+    image: ${IMAGE_REGISTRY}/${IMAGE_WEB_SERVER}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    expose:
+      - "8080"
+    env_file:
+      - "${ENV_FILE:-.env}"
+    networks:
+      - wistable
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS 'http://localhost:8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  backend-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend-server
+    image: ${IMAGE_REGISTRY}/${IMAGE_BACKEND_SERVER}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    env_file:
+      - "${ENV_FILE:-.env}"
+    expose:
+      - "8081"
+    environment:
+      - TZ=${TIMEZONE}
+      - DEFAULT_TIME_ZONE=${TIMEZONE}
+    networks:
+      - wistable
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS 'http://localhost:8081' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 60
+
+  room-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.room-server
+    image: ${IMAGE_REGISTRY}/${IMAGE_ROOM_SERVER}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    expose:
+      - "3333"
+      - "3334"
+      - "3001"
+      - "3002"
+      - "3006"
+      - "3005"
+      - "3007"
+    env_file:
+      - "${ENV_FILE:-.env}"
+    environment:
+      - TZ=${TIMEZONE}
+      - NODE_ENV=${ENV}
+      - NODE_OPTIONS=--max-old-space-size=2048 --max-http-header-size=80000
+      - API_MAX_MODIFY_RECORD_COUNTS=${API_MAX_MODIFY_RECORD_COUNTS:-30}
+      - INSTANCE_MAX_MEMORY=4096M
+      - ENABLE_SOCKET=true
+    networks:
+      - wistable
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS 'http://localhost:3333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  databus-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.databus-server
+    image: ${IMAGE_REGISTRY}/${IMAGE_DATABUS_SERVER}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    expose:
+      - "8625"
+    env_file:
+      - "${ENV_FILE:-.env}"
+    environment:
+      - TZ=${TIMEZONE}
+    networks:
+      - wistable
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS 'http://localhost:8625' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  # Third Party Dockers
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: ../docker/Dockerfile.gateway
+    image: ${IMAGE_REGISTRY}/${IMAGE_GATEWAY}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    ports:
+      - ${NGINX_HTTP_PORT:-80}:80
+      - ${NGINX_HTTPS_PORT:-443}:443
+    environment:
+      - TZ=${TIMEZONE}
+    networks:
+      - wistable
+    depends_on:
+      web-server:
+        condition: service_healthy
+      backend-server:
+        condition: service_healthy
+      room-server:
+        condition: service_healthy
+
+  minio:
+    container_name: wistable-minio
+    image: ${IMAGE_MINIO}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    command: server --console-address ":9001" /data
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - ${DATA_PATH}/.data/minio/data:/data
+      - ${DATA_PATH}/.data/minio/config:/root/.minio
+    environment:
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+      - TZ=${TIMEZONE}
+    networks:
+      - wistable
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS 'http://localhost:9000' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    container_name: wistable-redis
+    image: ${IMAGE_REDIS}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    command:
+      [
+          "redis-server",
+          "--appendonly",
+          "yes",
+          "--requirepass",
+          "${REDIS_PASSWORD}",
+      ]
+    expose:
+      - "6379"
+    volumes:
+      - ${DATA_PATH}/.data/redis:/data
+    environment:
+      - TZ=${TIMEZONE}
+    networks:
+      - wistable
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  mysql:
+    container_name: wistable-mysql
+    image: ${IMAGE_MYSQL}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    volumes:
+      - ${DATA_PATH}/.data/mysql:/var/lib/mysql
+      - ./docker/mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    expose:
+      - "3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - TZ=${TIMEZONE}
+    command: --default-authentication-plugin=mysql_native_password
+      --sql_mode=IGNORE_SPACE,NO_ENGINE_SUBSTITUTION
+      --lower_case_table_names=2
+    healthcheck:
+      test: "mysql ${MYSQL_DATABASE} -u${MYSQL_USERNAME} -p${MYSQL_PASSWORD} --default-character-set=utf8mb4 -e 'SELECT 1;'"
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 60
+    networks:
+      - wistable
+
+  rabbitmq:
+    container_name: wistable-rabbitmq
+    image: ${IMAGE_RABBITMQ}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    volumes:
+      - ${DATA_PATH}/.data/rabbitmq:/var/lib/rabbitmq
+    expose:
+      - "5671"
+      - "5672"
+      - "15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USERNAME}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    networks:
+      - wistable
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  # init data
+  init-db:
+    build: ./init-db
+    image: ${IMAGE_REGISTRY:-wistable}/init-db:latest
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    environment:
+      - TZ=${TIMEZONE}
+      - DB_HOST=${MYSQL_HOST}
+      - DB_PORT=${MYSQL_PORT}
+      - DB_NAME=${MYSQL_DATABASE}
+      - DB_USERNAME=${MYSQL_USERNAME}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+    networks:
+      - wistable
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+networks:
+  wistable:
+    name: wistable_default
+    driver: bridge

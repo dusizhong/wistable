@@ -1,0 +1,14 @@
+{
+  "name": "wistable-e2e",
+  "private": true,
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:core": "npx playwright test --grep '@core'",
+    "test:auth": "npx playwright test --grep '@auth'",
+    "report": "npx playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

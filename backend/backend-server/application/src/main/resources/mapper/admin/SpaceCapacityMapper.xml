@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.apitable.admin.mapper.SpaceCapacityMapper">
+
+    <sql id="Base_Column_List">
+        id, space_id, max_seats, max_capacity_size_in_bytes, max_sheet_nums,
+        max_rows_per_sheet, max_rows_in_space, max_admin_nums,
+        api_call_nums_per_month, max_gallery_views_in_space,
+        max_kanban_views_in_space, max_gantt_views_in_space,
+        max_calendar_views_in_space, max_form_views_in_space,
+        max_mirror_nums, max_widget_nums, field_permission_nums,
+        node_permission_nums, max_remain_trash_days,
+        max_remain_time_machine_days, max_remain_record_activity_days,
+        max_ai_agent_nums, automation_run_nums_per_month,
+        is_deleted, created_by, updated_by, created_at, updated_at
+    </sql>
+
+    <select id="selectBySpaceId"
+        resultType="com.apitable.admin.entity.SpaceCapacityEntity">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM ${tablePrefix}space_capacity
+        WHERE space_id = #{spaceId}
+        AND is_deleted = 0
+    </select>
+
+</mapper>

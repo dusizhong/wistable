@@ -1,0 +1,59 @@
+{
+  "version": "1.9.4",
+  "description": "my apitable widget chart",
+  "engines": {
+    "node": ">=8.x"
+  },
+  "keywords": [
+    "apitable",
+    "widget",
+    "chart",
+    "widgets",
+    "apitable widgets"
+  ],
+  "main": "./dist/index",
+  "module": "./dist/index",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "start": "widget-cli start",
+    "release": "widget-cli release"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-dom": "*"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.42.0",
+    "@typescript-eslint/parser": "^5.42.0",
+    "eslint": "7.32.0",
+    "eslint-plugin-react": "^7.24.0",
+    "eslint-plugin-react-hooks": "^4.3.0",
+    "eslint-plugin-vika": "0.0.1"
+  },
+  "dependencies": {
+    "@antv/g2plot": "^2.3.39",
+    "@apitable/components": "^1.4.0",
+    "@apitable/core": "latest",
+    "@apitable/icons": "^1.4.0",
+    "@apitable/widget-sdk": "^1.4.0",
+    "@rjsf/core": "^2.4.0",
+    "@types/react": "^16.9.43",
+    "@types/react-dom": "^16.9.8",
+    "ahooks": "^3.7.8",
+    "dayjs": "^1.10.4",
+    "echarts": "^5.3.1",
+    "lodash": "^4.17.20",
+    "react-custom-scrollbars": "^4.2.1",
+    "styled-components": ">=5.2.1",
+    "typescript": "4.1.2"
+  },
+  "browserslist": [
+    "defaults",
+    "not dead",
+    "not op_mini all"
+  ]
+}
