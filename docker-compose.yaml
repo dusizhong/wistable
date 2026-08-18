@@ -108,6 +108,27 @@ services:
       start_period: 10s
       retries: 5
 
+  # Independent pluggable AI service (opt-in: docker compose --profile ai up -d).
+  # Not started by default; when absent, gateway /ai returns 502 and the frontend
+  # degrades gracefully via the /ai/health probe. Does not affect other services.
+  ai-server:
+    build:
+      context: ./backend/ai-server
+      dockerfile: Dockerfile
+    image: ${IMAGE_REGISTRY}/${IMAGE_AI_SERVER}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    profiles: ["ai"]
+    restart: always
+    expose:
+      - "8001"
+    env_file:
+      - "${ENV_FILE:-.env}"
+    environment:
+      - TZ=${TIMEZONE}
+      - WISTABLE_FUSION_BASE_URL=http://room-server:3333/fusion/v1
+    networks:
+      - wistable
+
   # Third Party Dockers
   gateway:
     build:

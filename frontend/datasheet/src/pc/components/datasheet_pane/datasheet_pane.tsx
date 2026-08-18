@@ -83,6 +83,17 @@ const RobotPanel = dynamic(() => import('pc/components/robot/robot_panel/robot_p
   ),
 });
 
+const AiPanel = dynamic(() => import('pc/components/ai/ai_panel').then((m) => m.AiPanel), {
+  ssr: false,
+  loading: () => (
+    <div className={styles.loading}>
+      <Skeleton count={1} width="38%" />
+      <Skeleton count={2} />
+      <Skeleton count={1} width="61%" />
+    </div>
+  ),
+});
+
 interface IDatasheetMain {
   loading: boolean;
   datasheetErrorCode?: number | null;
@@ -227,6 +238,7 @@ const DataSheetPaneBase: FC<React.PropsWithChildren<{ panelLeft?: JSX.Element }>
   const [historyDialog, setHistoryDialog] = useAtom(automationHistoryAtom);
   const [isDevToolsOpen, { toggle: toggleDevToolsOpen, set: setDevToolsOpen }] = useToggle();
   const [isRobotPanelOpen, { toggle: toggleRobotPanelOpen, set: setRobotPanelOpen }] = useToggle();
+  const [isAiPanelOpen, { toggle: toggleAiPanelOpen, set: setAiPanelOpen }] = useToggle();
   const toggleTimeMachineOpen = useCallback(
     (state?: boolean) => {
       if (activeDatasheetId) {
@@ -280,6 +292,10 @@ const DataSheetPaneBase: FC<React.PropsWithChildren<{ panelLeft?: JSX.Element }>
   }, [toggleRobotPanelOpen]);
 
   useEffect(() => {
+    ShortcutActionManager.bind(ShortcutActionName.ToggleAiPanel, toggleAiPanelOpen);
+  }, [toggleAiPanelOpen]);
+
+  useEffect(() => {
     ShortcutActionManager.bind(ShortcutActionName.ToggleTimeMachinePanel, toggleTimeMachineOpen);
   }, [toggleTimeMachineOpen]);
 
@@ -299,8 +315,16 @@ const DataSheetPaneBase: FC<React.PropsWithChildren<{ panelLeft?: JSX.Element }>
   }, [isRobotPanelOpen, dispatch, activeDatasheetId]);
 
   useEffect(() => {
+    if (!activeDatasheetId) {
+      return;
+    }
+    dispatch(StoreActions.setCoPilotPanelStatus(isAiPanelOpen, activeDatasheetId));
+  }, [isAiPanelOpen, dispatch, activeDatasheetId]);
+
+  useEffect(() => {
     setDevToolsOpen(false);
     setRobotPanelOpen(false);
+    setAiPanelOpen(false);
     toggleTimeMachineOpen(false);
 
     dispatch(StoreActions.resetDatasheet(PREVIEW_DATASHEET_ID));
@@ -501,6 +525,7 @@ const DataSheetPaneBase: FC<React.PropsWithChildren<{ panelLeft?: JSX.Element }>
         }}
       />
     )}
+    {isAiPanelOpen && activeDatasheetId && <AiPanel dstId={activeDatasheetId} onClose={() => setAiPanelOpen(false)} />}
     {WeixinShareWrapper ? <WeixinShareWrapper>{childComponent}</WeixinShareWrapper> : childComponent}</>;
 };
 

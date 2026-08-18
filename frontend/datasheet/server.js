@@ -140,6 +140,17 @@ portfinder
               cookieDomainRewrite: '',
             }),
           );
+
+          server.use(
+            createProxyMiddleware('/ai', {
+              // 独立 AI 服务（可插拔）；未启动时前端探测 /ai/health 失败自动降级
+              target: process.env.API_AI_SERVER || 'http://127.0.0.1:8001',
+              changeOrigin: true,
+              cookieDomainRewrite: '',
+              // AI 服务自身路由为根路径（/health、/import/*、/ask），去掉 /ai 前缀
+              pathRewrite: { '^/ai': '' },
+            }),
+          );
         }
 
         server.all('*', (req, res) => {

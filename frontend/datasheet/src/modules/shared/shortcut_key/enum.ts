@@ -102,6 +102,7 @@ export enum ShortcutActionName {
   ToggleFindPanel = 'ToggleFindPanel',
   ToggleApiPanel = 'ToggleApiPanel',
   ToggleRobotPanel = 'ToggleRobotPanel',
+  ToggleAiPanel = 'ToggleAiPanel',
   ToggleTimeMachinePanel = 'ToggleTimeMachinePanel',
   ToggleArchivedRecordsPanel = 'ToggleArchivedRecordsPanel',
   // Expand the card

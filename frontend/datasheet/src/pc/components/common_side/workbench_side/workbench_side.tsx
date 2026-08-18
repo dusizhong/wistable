@@ -442,8 +442,8 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
         )}
         {importModalNodeId && <ImportFile
           isPrivate={activeKey === ConfigConstant.Modules.PRIVATE}
-          parentId={importModalNodeId} 
-          onCancel={() => dispatch(StoreActions.updateImportModalNodeId(''))} 
+          parentId={importModalNodeId}
+          onCancel={() => dispatch(StoreActions.updateImportModalNodeId(''))}
         />}
         {panelVisible && (
           <SearchPanel

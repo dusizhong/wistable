@@ -49,6 +49,7 @@ import {
 } from '@apitable/core';
 import {
   AddCircleOutlined,
+  AiOutlined,
   ApiOutlined,
   AutomationOutlined,
   ChevronDownOutlined,
@@ -183,7 +184,7 @@ const ToolbarBase = () => {
     }
     return widgetPanel.reduce((total, item) => total + item.widgets.length, 0);
   });
-  const { isRobotPanelOpen, isTimeMachinePanelOpen } = useAppSelector((state) => {
+  const { isRobotPanelOpen, isTimeMachinePanelOpen, isCopilotPanelOpen } = useAppSelector((state) => {
     const clientState = Selectors.getDatasheetClient(state);
     return clientState || ({} as IDatasheetClientState);
   });
@@ -385,6 +386,7 @@ const ToolbarBase = () => {
       [ShortcutActionName.ToggleApiPanel]: isApiPanelOpen,
       [ShortcutActionName.ToggleWidgetPanel]: isWidgetPanel,
       [ShortcutActionName.ToggleRobotPanel]: isRobotPanelOpen,
+      [ShortcutActionName.ToggleAiPanel]: isCopilotPanelOpen,
       [ShortcutActionName.ToggleTimeMachinePanel]: isTimeMachinePanelOpen,
     };
     for (const key in panelMap) {
@@ -439,6 +441,21 @@ const ToolbarBase = () => {
       label: t(Strings.find),
       key: 'find',
       show: true,
+    },
+    {
+      component: (
+        <ToolItem
+          key="ai"
+          icon={<AiOutlined size={16} />}
+          text={t(Strings.ai_chat)}
+          onClick={() => handleToggleRightBar(ShortcutActionName.ToggleAiPanel)}
+          className={classNames({ [styles.toolbarItem]: true, [styles.apiActive]: isCopilotPanelOpen })}
+          id={DATASHEET_ID.COPILOT_BTN}
+          showLabel={showIconBarLabel}
+        />
+      ),
+      key: 'ai',
+      show: getEnvVariables().AI_SERVICE_VISIBLE,
     },
     {
       component: <ForeignForm key="foreignForm" className={styles.toolbarItem} showLabel={showIconBarLabel} />,
@@ -747,7 +764,7 @@ const ToolbarBase = () => {
             }
             onPopupVisibleChange={setIconRotation}
             align="flex-end"
-            fixedIndex={1}
+            fixedIndex={2}
             popupClassName={styles.collapsePopup}
             popupItemClassName={styles.collapsePopupItem}
           />

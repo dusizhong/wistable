@@ -1,5 +1,7 @@
 export { AutomationOutlined } from './automation_outlined';
 export { AutomationFilled } from './automation_filled';
+export { AiOutlined } from './ai_outlined';
+export { AiFilled } from './ai_filled';
 export { PasteFilled } from './paste_filled';
 export { EscOutlined } from './esc_outlined';
 export { EscFilled } from './esc_filled';
