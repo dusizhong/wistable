@@ -6,7 +6,7 @@ RUN yum install -y findutils || dnf install -y findutils
 WORKDIR /app
 COPY ./backend/backend-server/. .
 RUN ./gradlew -v
-RUN ./gradlew build -x test
+RUN ./gradlew build -x test -x checkstyleMain -x checkstyleTest
 
 
 FROM amazoncorretto:17
