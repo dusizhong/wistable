@@ -129,7 +129,6 @@ const FeedbackAdmin: React.FC = () => {
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             prefix={<SearchOutlined />}
-            allowClear
             block
           />
         </div>
