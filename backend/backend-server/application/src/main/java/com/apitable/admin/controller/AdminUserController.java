@@ -91,7 +91,7 @@ public class AdminUserController {
             .email(ro.getEmail())
             .password(passwordService.encode(ro.getPassword()))
             .nickName(StrUtil.isNotBlank(ro.getNickName()) ? ro.getNickName() : ro.getEmail())
-            .mobilePhone(ro.getMobile())
+            .mobilePhone(StrUtil.isBlank(ro.getMobile()) ? null : ro.getMobile())
             .role(StrUtil.isNotBlank(ro.getRole()) ? ro.getRole() : "user")
             .build();
         userMapper.insert(user);
@@ -116,7 +116,7 @@ public class AdminUserController {
             user.setEmail(ro.getEmail());
         }
         if (ro.getMobile() != null) {
-            user.setMobilePhone(ro.getMobile());
+            user.setMobilePhone(StrUtil.isBlank(ro.getMobile()) ? null : ro.getMobile());
         }
         userMapper.updateById(user);
         loginUserCacheService.delete(userId);
