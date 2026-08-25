@@ -2,68 +2,46 @@
 
 本文为开发部署技术指导文档。
 
----
 
 ## 生产部署
 
-1. 配置 Docker 镜像加速
-```
+```bash
+# 1. 配置 Docker 镜像加速
 sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
 { "registry-mirrors": ["https://docker.m.daocloud.io"] }
 EOF
 sudo systemctl restart docker
-```
 
-2. 克隆代码
-```
+# 2. 克隆代码
 git clone <repo-url> wistable
 cd wistable
-```
 
-3. 加载专有镜像包（databus 、 apitable/node 、 apitable/nodepy 、 widget-deploy 是专有镜像，Docker 可能拉取不到，采用本地镜像包加载）
-```
+# 3. 加载专有镜像包（专有镜像包构建详见常见问题3）
 scp docker/databus-server.tar docker/apitable-node.tar docker/apitable-nodepy.tar docker/widget-deploy.tar user@服务器:~/wistable/docker/
 docker load -i docker/databus-server.tar
 docker load -i docker/apitable-node.tar
 docker load -i docker/apitable-nodepy.tar
 docker load -i docker/widget-deploy.tar
-```
 
-4. 配置环境变量
-```
+# 4. 配置环境变量
 # IMAGE_PULL_POLICY设置为if_not_present
-# 替换 CHANGE_ME 为真实密码（MYSQL/REDIS/MINIO/AWS/SOCKET_AUTH_TOKEN）
+# 替换 CHANGE_ME 为真实密码（MYSQL/REDIS/MINIO/RABBITMQ_PASSWORD/SOCKET_AUTH_TOKEN）
 cp .env.example .env 
-```
 
-5. 启动全部服务
-```
+# 5. 启动全部服务
 docker compose --env-file .env up -d
-```
 
-6. 编译部署小组件（仅首次需要，JS 包不在 Docker 镜像中）
-```
+# 6. 编译部署小组件
 # 用第 3 步已加载的 widget-deploy 镜像（一次性容器），服务器无需 Node/Python 工具链
 docker compose --env-file .env --profile widgets run --rm widget-init
 docker compose --env-file .env restart backend-server
+
+# 7. 访问（默认账号: admin@qq.com / admin123）
+http://localhost:8080
 ```
 
-7. 访问 http://localhost:8080, 默认账号: admin@qq.com / admin123
 
-8. 常用命令
-
-| 命令 | 说明 |
-|------|------|
-| `docker compose --env-file .env up -d` | 启动全部服务（生产模式） |
-| `docker compose --env-file .env up -d --build` | 重建镜像并启动 |
-| `docker compose build [service]` | 构建单个服务镜像 |
-| `docker compose down --remove-orphans` | 停止并清理 |
-| `docker compose ps` | 查看服务状态 |
-| `docker compose logs -f [service]` | 查看服务日志 |
-
----
-
-## 开发环境
+## 开发部署
 
 开发模式: 基础设施跑 Docker，业务代码本地原生运行，支持热更新。
 
@@ -72,21 +50,20 @@ docker compose --env-file .env restart backend-server
 ```bash
 # 一键部署开发工具链 + 安装项目依赖 + 创建数据目录
 bash scripts/setup-dev.sh
+# 加载 databus-server 镜像（首次需要；databus-server 为 apitable 专有镜像，Docker Hub 拉不到，故本地加载）
+docker load -i docker/databus-server.tar
 ```
 
 ### 日常使用
 
 ```bash
-# 1. 加载 databus-server 镜像（首次需要；databus-server 为 apitable 专有镜像，Docker Hub 拉不到，故本地加载）
-docker load -i docker/databus-server.tar
-
 # 2. 激活开发环境 (Node16 + JDK17 + 加载 .env + host 指向 127.0.0.1)
 source scripts/dev-env.sh
 
 # 3. 启动基础设施 (mysql/redis/rabbitmq/minio/init-db/databus)
 docker compose -f docker-compose.dev.yaml --env-file .env up -d
 
-# 4. 编译部署小组件到 MinIO（首次必须执行）
+# 4. 编译部署小组件到 MinIO（首次执行）
 bash frontend/widgets/build-and-deploy.sh
 
 # 5. 分别启动三个业务服务（可在 IDE 或不同终端中启动）
@@ -98,48 +75,6 @@ cd frontend/datasheet && pnpm dev                   # Next.js 前端 (3000)
 docker compose -f docker-compose.dev.yaml down --remove-orphans
 ```
 
-> `source scripts/dev-env.sh` 会将 `MYSQL_HOST`、`REDIS_HOST`、`RABBITMQ_HOST`、`AWS_ENDPOINT` 等重写为 `127.0.0.1`，让本地进程能连接到 Docker 暴露的端口。
-
----
-
-## 修改源码后更新部署
-
-### 开发模式
-
-开发模式下代码本地运行，改完即生效（热更新），无需任何额外操作。只有改了小组件源码时需要重新编译部署：
-
-```bash
-source scripts/dev-env.sh
-bash frontend/widgets/build-and-deploy.sh
-# 重启 backend-server 生效
-```
-
-### 生产模式
-
-生产模式下代码跑在 Docker 镜像中，修改源码后需要重建对应镜像并重启：
-
-| 改了这里 | 重建命令 | 说明 |
-|----------|---------|------|
-| `frontend/datasheet/`、`packages/core/`、`frontend/widget-sdk/` | `docker compose build web-server` | 前端和共享库 |
-| `backend/room-server/` | `docker compose build room-server` | NestJS 协作服务 |
-| `backend/backend-server/` | `docker compose build backend-server` | Java 后端 |
-| `gateway/conf.d/` | `docker compose build gateway` | Nginx 配置 |
-| `init-db/` | `docker compose build init-db` | 数据库种子数据 |
-| `frontend/widgets/` | `docker compose --env-file .env --profile widgets run --rm widget-init` | 小组件（上传 MinIO + 更新 DB，无需重建镜像） |
-
-```bash
-# 改了源码后，典型更新流程：
-docker compose build <service>    # 重建镜像
-docker compose --env-file .env up -d   # 用新镜像重启
-```
-
-以下情况**不需要**重建镜像：
-
-- 只改了 `.env`（`docker compose up -d` 会重新注入）
-- 只改了 `docker-compose.yaml`（编排文件，不是镜像）
-- 日常开发模式（代码在本地跑，不碰镜像）
-
----
 
 ## 项目结构
 
@@ -219,26 +154,26 @@ wistable/
   README.md                    # 项目简介
 ```
 
----
 
 ## 常见问题
 
-### 部署相关
+***1. 修改代码后，生产环境中如何更新部署？***
 
-**Q: 构建镜像报 `dial tcp ...:443 i/o timeout`（拉不到基础镜像）？**
-
-这是服务器连不上 Docker Hub（DNS 污染/被墙），须配置 Docker 镜像加速：
-```
-sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
-{ "registry-mirrors": ["https://docker.m.daocloud.io"] }
-EOF
-sudo systemctl restart docker
+```bash
+git pull
+docker compose build <service>    # 重建镜像
+docker compose --env-file .env up -d   # 用新镜像重启
 ```
 
-**Q： 本地镜像包构建方式？**
-
-在能联网的机器上执行：
+***2. 如何查看docker日志？***
+```bash
+docker ps
+docker logs -f wistable-backend-server-1    # 示例
 ```
+
+***3. 如何在本地构建apitable专有镜像包？***
+```
+# 在能联网的机器上执行（这些apitable专有镜像，Docker可能拉取不到，故采用本地构建后上传镜像包到服务器上加载）
 docker pull apitable/node:v16.15.0
 docker pull apitable/nodepy:16.15.0-alpine
 docker save -o docker/apitable-node.tar   apitable/node:v16.15.0
@@ -251,53 +186,10 @@ docker save -o docker/widget-deploy.tar   wistable/widget-deploy:latest
 # 注：databus-server.tar 为预编译 Rust 二进制（源码不在本仓库），无法本地构建，需从已有环境拷贝
 ```
 
-**Q: 启动后访问 8080 端口无响应？**
-
-先用 `docker compose ps` 检查各服务状态，再用 `docker compose logs -f` 查看日志。常见原因：
-
-- `.env` 中 `CHANGE_ME` 占位符未替换
-- `SOCKET_AUTH_TOKEN` 未设置
-- `databus-server.tar` 未加载
-- `.env` 中 `IMAGE_PULL_POLICY=never` 导致基建镜像未拉取
-
-**Q: 生产模式下前端页面空白？**
-
-检查是否执行了小组件部署步骤（`docker compose --env-file .env --profile widgets run --rm widget-init`），JS 包不在 Docker 镜像中。
-
-**Q: 如何完全重置数据重新部署？**
+***4. 如何完全重置数据重新部署？***
 
 ```bash
 docker compose down -v --remove-orphans   # 删除容器和数据卷
 docker compose --env-file .env up -d       # 重新启动（init-db 会重新初始化）
 docker compose --env-file .env --profile widgets run --rm widget-init  # 重新部署小组件
 ```
-
-### 开发相关
-
-**Q: 本地服务启动报数据库/Redis 连接失败？**
-
-确认已经执行 `source scripts/dev-env.sh`，它会将 host 重写为 `127.0.0.1`。执行后可用 `echo $MYSQL_HOST` 验证。
-
-**Q: 小组件脚本报 MinIO 连接失败？**
-
-同样需要先 `source scripts/dev-env.sh` 加载环境变量。另外确认 `pip install boto3` 已安装。
-
-**Q: `pnpm` 命令报 `command not found`？**
-
-Node 版本不对，需要 Node 16 + pnpm 8。用 `source scripts/dev-env.sh` 激活或手动 `nvm use 16`。
-
-### 自动化相关
-
-**Q: 自动化配置好了但无法启用（提示"触发条件和动作配置不完整"）？**
-
-通常是表单中下拉框等有默认值的字段没有主动操作过，默认值未写入保存数据。解决方法：重新点选一次下拉框字段再保存。详见 `backend/room-server/src/automation/README.md`。
-
-### 小组件相关
-
-**Q: 小组件面板看不到或加载失败？**
-
-- 确认已执行 `bash frontend/widgets/build-and-deploy.sh`
-- 确认已重启 backend-server
-- 检查 MinIO 中对应路径的文件是否存在
-
-详见 `frontend/widgets/README.md`。

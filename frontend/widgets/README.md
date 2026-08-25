@@ -1,6 +1,6 @@
-# WisTable 小组件 (Widgets)
+# 小组件 (Widgets)
 
-全部 10 个小组件源码，已本地化。可定制修改后重新编译部署。详细开发指南见 `widget-dev-guide.md`。
+小组件来源于 apitable 官方， 全部 10 个小组件源码，已本地化。可定制修改后重新编译部署。详细开发指南见 `widget-dev-guide.md`。
 
 ## 目录
 
