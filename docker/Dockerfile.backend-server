@@ -1,5 +1,8 @@
 FROM amazoncorretto:17 AS builder
 
+# gradlew 启动依赖 xargs（amazoncorretto 精简镜像不含 findutils；AL2 用 yum，AL2023 用 dnf）
+RUN yum install -y findutils || dnf install -y findutils
+
 WORKDIR /app
 COPY ./backend/backend-server/. .
 RUN ./gradlew -v
