@@ -4,7 +4,7 @@ FROM apitable/node:v16.15.0 AS deps
 WORKDIR /app
 
 # install packages can use cache
-COPY ./pnpm-workspace.yaml ./package.json ./pnpm-lock.yaml ./common-tsconfig.json ./
+COPY ./pnpm-workspace.yaml ./package.json ./pnpm-lock.yaml ./common-tsconfig.json ./.npmrc ./
 COPY ./patches/ ./patches
 
 COPY packages/i18n-lang/package.json ./packages/i18n-lang/
@@ -26,7 +26,7 @@ COPY --from=deps /app/packages/i18n-lang/node_modules ./packages/i18n-lang/node_
 COPY --from=deps /app/packages/core/node_modules ./packages/core/node_modules
 COPY --from=deps /app/backend/room-server/node_modules ./backend/room-server/node_modules
 
-COPY ./pnpm-workspace.yaml ./package.json ./pnpm-lock.yaml ./common-tsconfig.json ./nx.json ./
+COPY ./pnpm-workspace.yaml ./package.json ./pnpm-lock.yaml ./common-tsconfig.json ./nx.json ./.npmrc ./
 
 COPY packages/i18n-lang ./packages/i18n-lang
 
@@ -54,7 +54,7 @@ ENV SEMVER_FULL=${SEMVER_FULL}
 COPY --from=builder /app/backend/room-server/app-config.json /root/
 COPY --from=builder /app /app
 
-RUN npm install pm2@latest --global  \
+RUN npm install pm2@latest --global --registry=https://registry.npmmirror.com  \
     && rm -fr packages/*/src \
     && rm -fr backend/room-server/src \
     && rm -fr frontend/*/src

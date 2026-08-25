@@ -1,34 +1,56 @@
 # 开发部署指导
 
+本文为开发部署技术指导文档。
+
+---
 
 ## 生产部署
 
-```bash
-# 1. 克隆仓库（databus-server 镜像归档已在仓库中）
+1. 配置 Docker 镜像加速
+```
+sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
+{ "registry-mirrors": ["https://docker.m.daocloud.io"] }
+EOF
+sudo systemctl restart docker
+```
+
+2. 克隆代码
+```
 git clone <repo-url> wistable
 cd wistable
-
-# 2. 加载 databus-server 镜像
-docker load -i docker/databus-server.tar
-
-# 3. 配置环境变量
-cp .env.example .env            # 替换 CHANGE_ME 占位符为真实密码/密钥
-# 必须填写的变量：
-#   MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD, REDIS_PASSWORD, RABBITMQ_PASSWORD
-#   MINIO_ACCESS_KEY, MINIO_SECRET_KEY, AWS_ACCESS_KEY, AWS_ACCESS_SECRET
-#   SOCKET_AUTH_TOKEN (任意随机字符串)
-
-# 4. 启动全部服务（首次会构建镜像，约 10-20 分钟）
-docker compose --env-file .env up -d
-
-# 5. 编译部署小组件（仅首次需要，JS 包不在 Docker 镜像中）
-# 前置条件：Node 16 + 全局安装 @apitable/widget-cli + pip install boto3
-source scripts/dev-env.sh
-bash frontend/widgets/build-and-deploy.sh
-
-# 6. 访问 http://localhost:8080
-# 默认账号: admin@qq.com / admin123
 ```
+
+3. 加载专有镜像包（databus 、 apitable/node 、 apitable/nodepy 、 widget-deploy 是专有镜像，Docker 可能拉取不到，采用本地镜像包加载）
+```
+scp docker/databus-server.tar docker/apitable-node.tar docker/apitable-nodepy.tar docker/widget-deploy.tar user@服务器:~/wistable/docker/
+docker load -i docker/databus-server.tar
+docker load -i docker/apitable-node.tar
+docker load -i docker/apitable-nodepy.tar
+docker load -i docker/widget-deploy.tar
+```
+
+4. 配置环境变量
+```
+# IMAGE_PULL_POLICY设置为if_not_present
+# 替换 CHANGE_ME 为真实密码（MYSQL/REDIS/MINIO/AWS/SOCKET_AUTH_TOKEN）
+cp .env.example .env 
+```
+
+5. 启动全部服务
+```
+docker compose --env-file .env up -d
+```
+
+6. 编译部署小组件（仅首次需要，JS 包不在 Docker 镜像中）
+```
+# 用第 3 步已加载的 widget-deploy 镜像（一次性容器），服务器无需 Node/Python 工具链
+docker compose --env-file .env --profile widgets run --rm widget-init
+docker compose --env-file .env restart backend-server
+```
+
+7. 访问 http://localhost:8080, 默认账号: admin@qq.com / admin123
+
+8. 常用命令
 
 | 命令 | 说明 |
 |------|------|
@@ -39,6 +61,7 @@ bash frontend/widgets/build-and-deploy.sh
 | `docker compose ps` | 查看服务状态 |
 | `docker compose logs -f [service]` | 查看服务日志 |
 
+---
 
 ## 开发环境
 
@@ -54,7 +77,7 @@ bash scripts/setup-dev.sh
 ### 日常使用
 
 ```bash
-# 1. 加载 databus-server 镜像（首次需要）
+# 1. 加载 databus-server 镜像（首次需要；databus-server 为 apitable 专有镜像，Docker Hub 拉不到，故本地加载）
 docker load -i docker/databus-server.tar
 
 # 2. 激活开发环境 (Node16 + JDK17 + 加载 .env + host 指向 127.0.0.1)
@@ -77,6 +100,7 @@ docker compose -f docker-compose.dev.yaml down --remove-orphans
 
 > `source scripts/dev-env.sh` 会将 `MYSQL_HOST`、`REDIS_HOST`、`RABBITMQ_HOST`、`AWS_ENDPOINT` 等重写为 `127.0.0.1`，让本地进程能连接到 Docker 暴露的端口。
 
+---
 
 ## 修改源码后更新部署
 
@@ -101,6 +125,7 @@ bash frontend/widgets/build-and-deploy.sh
 | `backend/backend-server/` | `docker compose build backend-server` | Java 后端 |
 | `gateway/conf.d/` | `docker compose build gateway` | Nginx 配置 |
 | `init-db/` | `docker compose build init-db` | 数据库种子数据 |
+| `frontend/widgets/` | `docker compose --env-file .env --profile widgets run --rm widget-init` | 小组件（上传 MinIO + 更新 DB，无需重建镜像） |
 
 ```bash
 # 改了源码后，典型更新流程：
@@ -113,6 +138,8 @@ docker compose --env-file .env up -d   # 用新镜像重启
 - 只改了 `.env`（`docker compose up -d` 会重新注入）
 - 只改了 `docker-compose.yaml`（编排文件，不是镜像）
 - 日常开发模式（代码在本地跑，不碰镜像）
+
+---
 
 ## 项目结构
 
@@ -131,7 +158,11 @@ wistable/
     Dockerfile.web-server      # Next.js 前端镜像
     Dockerfile.gateway         # Nginx 网关镜像
     Dockerfile.databus-server  # Databus-server 镜像包装
-    databus-server.tar         # Databus-server 镜像归档（56MB，在 git 中）
+    Dockerfile.widget-deploy   # 小组件编译部署工具链镜像（在能联网机器上构建）
+    databus-server.tar         # Databus-server 镜像归档（56MB，不入 git，scp 上传）
+    apitable-node.tar          # apitable/node 基础镜像归档（>100MB，不入 git，scp 上传）
+    apitable-nodepy.tar        # apitable/nodepy 基础镜像归档（>100MB，不入 git，scp 上传）
+    widget-deploy.tar          # 小组件工具链镜像归档（>100MB，不入 git，scp 上传）
   init-db/                     # 数据库初始化镜像
     Dockerfile
     01_schema.sql              # 建表语句
@@ -188,10 +219,37 @@ wistable/
   README.md                    # 项目简介
 ```
 
+---
 
 ## 常见问题
 
 ### 部署相关
+
+**Q: 构建镜像报 `dial tcp ...:443 i/o timeout`（拉不到基础镜像）？**
+
+这是服务器连不上 Docker Hub（DNS 污染/被墙），须配置 Docker 镜像加速：
+```
+sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
+{ "registry-mirrors": ["https://docker.m.daocloud.io"] }
+EOF
+sudo systemctl restart docker
+```
+
+**Q： 本地镜像包构建方式？**
+
+在能联网的机器上执行：
+```
+docker pull apitable/node:v16.15.0
+docker pull apitable/nodepy:16.15.0-alpine
+docker save -o docker/apitable-node.tar   apitable/node:v16.15.0
+docker save -o docker/apitable-nodepy.tar apitable/nodepy:16.15.0-alpine
+
+# 小组件工具链镜像（node + widget-cli + boto3 + mysql，阿里云源加速构建）
+docker build -f docker/Dockerfile.widget-deploy -t wistable/widget-deploy:latest .
+docker save -o docker/widget-deploy.tar   wistable/widget-deploy:latest
+
+# 注：databus-server.tar 为预编译 Rust 二进制（源码不在本仓库），无法本地构建，需从已有环境拷贝
+```
 
 **Q: 启动后访问 8080 端口无响应？**
 
@@ -200,17 +258,18 @@ wistable/
 - `.env` 中 `CHANGE_ME` 占位符未替换
 - `SOCKET_AUTH_TOKEN` 未设置
 - `databus-server.tar` 未加载
+- `.env` 中 `IMAGE_PULL_POLICY=never` 导致基建镜像未拉取
 
 **Q: 生产模式下前端页面空白？**
 
-检查是否执行了小组件部署步骤（`bash frontend/widgets/build-and-deploy.sh`），JS 包不在 Docker 镜像中。
+检查是否执行了小组件部署步骤（`docker compose --env-file .env --profile widgets run --rm widget-init`），JS 包不在 Docker 镜像中。
 
 **Q: 如何完全重置数据重新部署？**
 
 ```bash
 docker compose down -v --remove-orphans   # 删除容器和数据卷
 docker compose --env-file .env up -d       # 重新启动（init-db 会重新初始化）
-bash frontend/widgets/build-and-deploy.sh  # 重新部署小组件
+docker compose --env-file .env --profile widgets run --rm widget-init  # 重新部署小组件
 ```
 
 ### 开发相关

@@ -3,6 +3,10 @@
 # 用法: source scripts/dev-env.sh && bash frontend/widgets/build-and-deploy.sh
 set -e
 
+# 连接端点：开发环境默认本机（127.0.0.1），生产容器内通过 environment 覆盖为 minio / mysql 服务名
+S3_ENDPOINT="${S3_ENDPOINT:-http://127.0.0.1:9000}"
+MYSQL_HOST="${MYSQL_HOST:-127.0.0.1}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # packageId|entry|dbReleaseId|projectDir
@@ -30,7 +34,7 @@ python3 -c "
 import boto3
 from botocore.config import Config
 s3 = boto3.client('s3',
-    endpoint_url='http://127.0.0.1:9000',
+    endpoint_url='${S3_ENDPOINT}',
     aws_access_key_id='${MINIO_ACCESS_KEY}',
     aws_secret_access_key='${MINIO_SECRET_KEY}',
     config=Config(signature_version='s3v4'), region_name='us-east-1')
@@ -85,7 +89,7 @@ for dir in "${!WIDGETS[@]}"; do
 import boto3
 from botocore.config import Config
 s3 = boto3.client('s3',
-    endpoint_url='http://127.0.0.1:9000',
+    endpoint_url='${S3_ENDPOINT}',
     aws_access_key_id='${MINIO_ACCESS_KEY}',
     aws_secret_access_key='${MINIO_SECRET_KEY}',
     config=Config(signature_version='s3v4'), region_name='us-east-1')
@@ -95,7 +99,7 @@ print('  uploaded')
 "
 
     echo "  Updating release $releaseId → $remotePath"
-    mysql -h127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" "${MYSQL_DATABASE}" \
+    mysql -h${MYSQL_HOST} -uroot -p"${MYSQL_ROOT_PASSWORD}" "${MYSQL_DATABASE}" \
       -e "UPDATE apitable_widget_package_release SET release_code_bundle = '${remotePath}' WHERE id = ${releaseId};" 2>/dev/null
   else
     echo "  Template widget — skipping JS compilation"
@@ -110,7 +114,7 @@ print('  uploaded')
     python3 -c "
 from botocore.config import Config
 s3 = __import__('boto3').client('s3',
-    endpoint_url='http://127.0.0.1:9000',
+    endpoint_url='${S3_ENDPOINT}',
     aws_access_key_id='${MINIO_ACCESS_KEY}',
     aws_secret_access_key='${MINIO_SECRET_KEY}',
     config=Config(signature_version='s3v4'), region_name='us-east-1')
@@ -122,7 +126,7 @@ print('    icon → ${ICON_TARGET}')
     python3 -c "
 from botocore.config import Config
 s3 = __import__('boto3').client('s3',
-    endpoint_url='http://127.0.0.1:9000',
+    endpoint_url='${S3_ENDPOINT}',
     aws_access_key_id='${MINIO_ACCESS_KEY}',
     aws_secret_access_key='${MINIO_SECRET_KEY}',
     config=Config(signature_version='s3v4'), region_name='us-east-1')
@@ -133,7 +137,7 @@ print('    cover → ${COVER_TARGET}')
 
   # --- Update DB package image tokens ---
   echo "  Updating DB package image tokens..."
-  mysql -h127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" "${MYSQL_DATABASE}" \
+  mysql -h${MYSQL_HOST} -uroot -p"${MYSQL_ROOT_PASSWORD}" "${MYSQL_DATABASE}" \
     -e "UPDATE apitable_widget_package
         SET icon = '${ICON_TARGET}',
             cover = '${COVER_TARGET}',

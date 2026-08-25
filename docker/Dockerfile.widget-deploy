@@ -1,0 +1,21 @@
+# 小组件编译部署一次性容器（JS 包不在主镜像中，需单独上传 MinIO + 更新 DB）
+# 用途：在能联网的机器上构建一次 → docker save 成 tar → 服务器 docker load（不联网、不装工具链）
+# 说明：node:16-alpine 基于 alpine 3.18（已 EOL，dl-cdn 源已失效，故必须先换阿里云源）；
+#       node 16 与项目运行时（.nvmrc/dev-env.sh）保持一致，widget-cli 要求 node >= 8 完全满足
+FROM node:16-alpine
+
+# apk 换阿里云源（alpine 3.18 已 EOL，dl-cdn 源不可用）
+RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#g' /etc/apk/repositories
+
+# 系统工具：bash（脚本用 declare -A）、mysql 客户端、python + pip
+RUN apk add --no-cache bash mysql-client python3 py3-pip
+
+# boto3（MinIO 上传，走阿里云源）
+RUN pip3 install --no-cache-dir --break-system-packages boto3 -i https://mirrors.aliyun.com/pypi/simple/
+
+# @apitable/widget-cli（编译，走 npmmirror）
+RUN npm install -g @apitable/widget-cli --registry=https://registry.npmmirror.com
+
+WORKDIR /app/frontend/widgets
+
+CMD ["bash", "build-and-deploy.sh"]

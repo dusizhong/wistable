@@ -46,6 +46,12 @@ yarn-error.log*
 
 dist/
 
+# docker 镜像 tar（构建产物，体积大，走 scp/rsync 传输，不入 git）
+docker/databus-server.tar
+docker/apitable-node.tar
+docker/apitable-nodepy.tar
+docker/widget-deploy.tar
+
 # 功能隐藏清单（本地文档，不提交）
 HIDDEN_FEATURES.md
 

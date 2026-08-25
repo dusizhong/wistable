@@ -129,6 +129,29 @@ services:
     networks:
       - wistable
 
+  # One-shot widget compiler/deployer (opt-in: docker compose --profile widgets run --rm widget-init).
+  # Widget JS bundles are NOT baked into images; this uploads them to MinIO and updates the DB.
+  widget-init:
+    image: ${IMAGE_REGISTRY}/${IMAGE_WIDGET_DEPLOY}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    profiles: ["widgets"]
+    restart: "no"
+    volumes:
+      - ./frontend/widgets:/app/frontend/widgets
+    env_file:
+      - "${ENV_FILE:-.env}"
+    environment:
+      - TZ=${TIMEZONE}
+      - S3_ENDPOINT=http://minio:9000
+      - MYSQL_HOST=mysql
+    networks:
+      - wistable
+    depends_on:
+      minio:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+
   # Third Party Dockers
   gateway:
     build:
@@ -258,7 +281,7 @@ services:
   # init data
   init-db:
     build: ./init-db
-    image: ${IMAGE_REGISTRY:-wistable}/init-db:latest
+    image: ${IMAGE_REGISTRY}/${IMAGE_INIT_DB}
     pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
     environment:
       - TZ=${TIMEZONE}

@@ -1,11 +1,11 @@
 # Install dependencies only when needed
 FROM apitable/nodepy:16.15.0-alpine AS deps
 
-RUN npm install -g pnpm@8.13.1
+RUN npm install -g pnpm@8.13.1 --registry=https://registry.npmmirror.com
 
 WORKDIR /workspace-install
 
-COPY ./pnpm-workspace.yaml ./package.json ./pnpm-lock.yaml ./
+COPY ./pnpm-workspace.yaml ./package.json ./pnpm-lock.yaml ./.npmrc ./
 COPY ./patches/ ./patches
 
 # datasheet dependencies packages
@@ -28,7 +28,7 @@ ARG NEXT_ASSET_PREFIX=""
 ARG NEXT_PUBLIC_ASSET_PREFIX=""
 ENV SEMVER_FULL=${SEMVER_FULL}
 
-RUN npm install -g pnpm@8.13.1
+RUN npm install -g pnpm@8.13.1 --registry=https://registry.npmmirror.com
 
 WORKDIR /app
 
